@@ -30,14 +30,18 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     _;
   }
 
+
+  //"Proxy Owner/Authorised Deployer"
   modifier onlyDeployer() {
     require(
-      msg.sender == proxyOwner || authorizedDeploy[msg.sender],
+      msg.sender == proxyOwner || authorizedDeploy[msg.sender],   
       "This function can only be called by an authorized deployer"
     );
     _;
   }
 
+
+  //"Owner"
   modifier onlyOwnerOf(uint256 assetId) {
     require(
       msg.sender == _ownerOf(assetId),
@@ -46,6 +50,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     _;
   }
 
+
+  //"Asset Owner/Asset Operator/Asset Manager".
   modifier onlyUpdateAuthorized(uint256 tokenId) {
     require(
       msg.sender == _ownerOf(tokenId) ||
@@ -56,10 +62,12 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     _;
   }
 
+
+  //operator of a parcel (who can update metadata of parcel) can be updated by "Owner/Owner(Co-Owner via approvedForAll)/Parcel(Co-Owner)
   modifier canSetUpdateOperator(uint256 tokenId) {
     address owner = _ownerOf(tokenId);
     require(
-      _isAuthorized(msg.sender, tokenId) || updateManager[owner][msg.sender],
+      _isAuthorized(msg.sender, tokenId) || updateManager[owner][msg.sender], 
       "unauthorized user"
     );
     _;
@@ -81,6 +89,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
       updateManager[owner][operator];
   }
 
+
+  //To authorise new Deployers. "Proxy Owner"
   function authorizeDeploy(address beneficiary) external onlyProxyOwner {
     require(beneficiary != address(0), "invalid address");
     require(authorizedDeploy[beneficiary] == false, "address is already authorized");
@@ -89,6 +99,7 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     emit DeployAuthorized(msg.sender, beneficiary);
   }
 
+  //To Forbid Deployers. "Proxy Owner"
   function forbidDeploy(address beneficiary) external onlyProxyOwner {
     require(beneficiary != address(0), "invalid address");
     require(authorizedDeploy[beneficiary], "address is already forbidden");
@@ -102,8 +113,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
   //
 
   function assignNewParcel(int x, int y, address beneficiary) external onlyDeployer {
-    _generate(_encodeTokenId(x, y), beneficiary);
-    _updateLandBalance(address(0), beneficiary);
+    _generate(_encodeTokenId(x, y), beneficiary); //present in Full-LandRegistry.sol, To generate 
+    _updateLandBalance(address(0), beneficiary); //detailed in end.
   }
 
   function assignMultipleParcels(int[] x, int[] y, address beneficiary) external onlyDeployer {
@@ -117,11 +128,14 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
   // Inactive keys after 1 year lose ownership
   //
 
+
+  //Update latest transaction of caller to current timestamp
   function ping() external {
     // solium-disable-next-line security/no-block-members
     latestPing[msg.sender] = block.timestamp;
   }
 
+  //to update ping of user using user address "Proxy Owner/Address CoOwner"
   function setLatestToNow(address user) external {
     require(msg.sender == proxyOwner || _isApprovedForAll(user, msg.sender), "Unauthorized user");
     // solium-disable-next-line security/no-block-members
@@ -136,6 +150,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     return _encodeTokenId(x, y);
   }
 
+  //https://ethereum.stackexchange.com/questions/119233/best-way-to-convert-point-coordinate-x-y-to-unique-token-id
+  //Still in Doubt, Found this article for encoding 2D coordinates
   function _encodeTokenId(int x, int y) internal pure returns (uint result) {
     require(
       -1000000 < x && x < 1000000 && -1000000 < y && y < 1000000,
@@ -220,6 +236,7 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     return _tokenMetadata(assetId);
   }
 
+  //Doubt. ERC165 interfaceID compatibility check, if supports returns assets metadata, else returns empty string.
   function _tokenMetadata(uint256 assetId) internal view returns (string) {
     address _owner = _ownerOf(assetId);
     if (_isContract(_owner) && _owner != address(estateRegistry)) {
@@ -372,6 +389,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
   // Estate generation
   //
 
+
+  //Functions to register new estate from land contract
   event EstateRegistrySet(address indexed registry);
 
   function setEstateRegistry(address registry) external onlyProxyOwner {
@@ -397,6 +416,7 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     return _createEstate(x, y, beneficiary, metadata);
   }
 
+  //mint new estate , then transfer all lands to newly created estateId.
   function _createEstate(
     int[] x,
     int[] y,
@@ -481,6 +501,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
    * @notice Set new land balance token: `_newLandBalance`
    * @param _newLandBalance address of the new land balance token
    */
+
+   //setting new token minime token, for counting land balance of individual in terms of minime token. ERC20 standards.
   function setLandBalanceToken(address _newLandBalance) onlyProxyOwner external {
     require(_newLandBalance != address(0), "New landBalance should not be zero address");
     emit SetLandBalanceToken(landBalance, _newLandBalance);
@@ -491,6 +513,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
    * @dev Register an account balance
    * @notice Register land Balance
    */
+
+   //destroy old balance tokens completely, and generate newbalance tokens.
   function registerBalance() external {
     require(!registeredBalance[msg.sender], "Register Balance::The user is already registered");
 
@@ -520,6 +544,7 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
    * @dev Unregister an account balance
    * @notice Unregister land Balance
    */
+   //remove user from balance registry, and destroy balance tokens.
   function unregisterBalance() external {
     require(registeredBalance[msg.sender], "Unregister Balance::The user not registered");
 
@@ -536,6 +561,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
     );
   }
 
+
+  //operator after transfer will be set to Zero address.
   function _doTransferFrom(
     address from,
     address to,
@@ -568,6 +595,8 @@ contract LANDRegistry is Storage, Ownable, FullAssetRegistry, ILANDRegistry {
    * @param _from account
    * @param _to account
    */
+
+   //check registry of from and to address , and update land balance tokens of from and to.
   function _updateLandBalance(address _from, address _to) internal {
     if (registeredBalance[_from]) {
       landBalance.destroyTokens(_from, 1);
