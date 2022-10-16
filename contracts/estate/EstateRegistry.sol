@@ -131,12 +131,13 @@ contract EstateRegistry is Migratable, IEstateRegistry, ERC721Token, ERC721Recei
    * @param _owner of the estates
    * @return the amount of LANDs
    */
+   //returns number of lands of all estates owned by a address.
   function getLANDsSize(address _owner) public view returns (uint256) {
     // Avoid balanceOf to not compute an unnecesary require
     uint256 landsSize;
-    uint256 balance = ownedTokensCount[_owner];
+    uint256 balance = ownedTokensCount[_owner]; //Mapping from owner to number of owned token -> ownedTokensCount
     for (uint256 i; i < balance; i++) {
-      uint256 estateId = ownedTokens[_owner][i];
+      uint256 estateId = ownedTokens[_owner][i]; //Mapping from owner to list of owned token IDs -> ownedTokens
       landsSize += estateLandIds[estateId].length;
     }
     return landsSize;
@@ -451,7 +452,7 @@ contract EstateRegistry is Migratable, IEstateRegistry, ERC721Token, ERC721Recei
    * @return uint256 Representing the new Estate id
    */
   function _getNewEstateId() internal view returns (uint256) {
-    return totalSupply().add(1);
+    return totalSupply().add(1); 
   }
 
   /**
@@ -482,6 +483,10 @@ contract EstateRegistry is Migratable, IEstateRegistry, ERC721Token, ERC721Recei
    * @param landId LAND to be transfered
    * @param destinatary New owner
    */
+
+   //updating estateLandIds mapping and estateLandIndex mapping 
+   //swap landid and landIdIndex with last index elements of mappings, then delete last element of both mappings.
+   //then do  _updateEstateLandBalance and registry safeTransferFrom
   function _transferLand(
     uint256 estateId,
     uint256 landId,
